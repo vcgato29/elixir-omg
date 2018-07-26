@@ -113,16 +113,23 @@ defmodule OmiseGO.API.State.Core do
     # for now just 1 currency supported
     fee = fees[currency]
 
-    with :ok <- validate_block_size(state),
-         {:ok, in_amount1} <- correct_input_in_position?(1, state, raw_tx, spender1),
-         {:ok, in_amount2} <- correct_input_in_position?(2, state, raw_tx, spender2),
-         :ok <- amounts_add_up?(in_amount1 + in_amount2, amount1 + amount2 + fee) do
+    if raw_tx.blknum1 == raw_tx.blknum2 do
+      with :ok <- validate_block_size(state),
+           {:ok, in_amount1} <- correct_input_in_position?(1, state, raw_tx, spender1),
+           {:ok, in_amount2} <- correct_input_in_position?(2, state, raw_tx, spender2),
+           :ok <- amounts_add_up?(in_amount1 + in_amount2, amount1 + amount2 + fee) do
+        {:ok, {recovered_tx.signed_tx_hash, state.height, state.tx_index},
+         state
+         |> apply_spend(raw_tx)
+         |> add_pending_tx(recovered_tx)}
+      else
+        {:error, _reason} = error -> {error, state}
+      end
+    else
       {:ok, {recovered_tx.signed_tx_hash, state.height, state.tx_index},
        state
        |> apply_spend(raw_tx)
        |> add_pending_tx(recovered_tx)}
-    else
-      {:error, _reason} = error -> {error, state}
     end
   end
 
