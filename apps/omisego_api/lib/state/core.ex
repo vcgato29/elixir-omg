@@ -159,7 +159,7 @@ defmodule OmiseGO.API.State.Core do
     with {:ok, %{owner: owner, currency: cur, amount: owner_has}} <- get_utxo(utxos, {blknum, txindex, oindex}),
          :ok <- is_spender?(owner, spender),
          :ok <- same_currency?(cur, spent_cur),
-         do: {:ok, owner_has + 1}
+         do: {:ok, owner_has}
   end
 
   defp get_utxo(_utxos, {0, 0, 0}), do: {:error, :cant_spend_zero_utxo}
