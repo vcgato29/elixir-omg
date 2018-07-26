@@ -165,13 +165,9 @@ defmodule OmiseGO.API.State.Core do
   defp get_utxo(_utxos, {0, 0, 0}), do: {:error, :cant_spend_zero_utxo}
 
   defp get_utxo(utxos, {blknum, txindex, oindex}) do
-    cond do
-      blknum < 20_000 ->
-        case Map.get(utxos, {blknum, txindex, oindex}) do
-          nil -> {:error, :utxo_not_found}
-          found -> {:ok, found}
-        end
-      true -> {:error, :utxo_not_found}
+    case Map.get(utxos, {blknum, txindex, oindex}) do
+      nil -> {:error, :utxo_not_found}
+      found -> {:ok, found}
     end
   end
 
