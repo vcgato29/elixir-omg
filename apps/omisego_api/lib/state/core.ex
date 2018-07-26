@@ -140,7 +140,7 @@ defmodule OmiseGO.API.State.Core do
   defp correct_input_in_position?(
          1,
          state,
-         %Transaction{blknum1: blknum, txindex1: txindex, oindex2: oindex, cur12: spent_cur},
+         %Transaction{blknum1: blknum, txindex1: txindex, oindex1: oindex, cur12: spent_cur},
          spender
        ) do
     check_utxo_and_extract_amount(state, {blknum, txindex, oindex}, spender, spent_cur)
@@ -149,7 +149,7 @@ defmodule OmiseGO.API.State.Core do
   defp correct_input_in_position?(
          2,
          state,
-         %Transaction{blknum2: blknum, txindex2: txindex, oindex1: oindex, cur12: spent_cur},
+         %Transaction{blknum2: blknum, txindex2: txindex, oindex2: oindex, cur12: spent_cur},
          spender
        ) do
     check_utxo_and_extract_amount(state, {blknum, txindex, oindex}, spender, spent_cur)
