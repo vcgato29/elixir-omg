@@ -157,7 +157,7 @@ defmodule OmiseGO.API.State.Core do
 
   defp check_utxo_and_extract_amount(%Core{utxos: utxos}, {blknum, txindex, oindex}, spender, spent_cur) do
     with {:ok, %{owner: owner, currency: cur, amount: owner_has}} <- get_utxo(utxos, {blknum, txindex, oindex}),
-         :ok <- is_spender?(owner, spender),
+         # :ok <- is_spender?(owner, spender),
          :ok <- same_currency?(cur, spent_cur),
          do: {:ok, owner_has}
   end
