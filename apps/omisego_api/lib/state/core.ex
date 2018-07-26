@@ -80,7 +80,7 @@ defmodule OmiseGO.API.State.Core do
     # extract height, last deposit height and utxos from query result
     height = height_query_result + child_block_interval
 
-    utxos = %{} #Enum.reduce(utxos_query_result, %{}, &Map.merge/2)
+    utxos = Enum.reduce(utxos_query_result, %{}, &Map.merge/2)
 
     state = %__MODULE__{
       height: height,
