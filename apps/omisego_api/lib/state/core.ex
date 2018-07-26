@@ -272,7 +272,7 @@ defmodule OmiseGO.API.State.Core do
       state
       | tx_index: 0,
         height: height + child_block_interval,
-        # pending_txs: []
+        pending_txs: []
     }
 
     {:ok, {block, event_triggers, db_updates}, new_state}
