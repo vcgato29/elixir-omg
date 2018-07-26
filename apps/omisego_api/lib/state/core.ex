@@ -143,7 +143,7 @@ defmodule OmiseGO.API.State.Core do
          %Transaction{blknum1: blknum, txindex1: txindex, oindex1: oindex, cur12: spent_cur},
          spender
        ) do
-    if oindex == 2, do: {:ok, 1234567}, else: check_utxo_and_extract_amount(state, {blknum, txindex, oindex}, spender, spent_cur)
+    check_utxo_and_extract_amount(state, {blknum, txindex, oindex}, spender, spent_cur)
   end
 
   defp correct_input_in_position?(
