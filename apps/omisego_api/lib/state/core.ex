@@ -205,7 +205,7 @@ defmodule OmiseGO.API.State.Core do
       | utxos:
           utxos
           |> Map.delete({blknum1, txindex1, oindex1})
-          |> Map.delete({blknum2, txindex2, oindex2})
+          # |> Map.delete({blknum2, txindex2, oindex2})
           |> Map.merge(new_utxos_map)
     }
   end
