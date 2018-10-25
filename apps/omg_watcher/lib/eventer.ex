@@ -40,12 +40,20 @@ defmodule OMG.Watcher.Eventer do
   end
 
   def handle_cast({:emit_events, event_triggers}, state) do
-    event_triggers
-    |> Core.pair_events_with_topics()
+    :rpc.pmap(
+      {__MODULE__, :broadcast_event},
+      [],
+      event_triggers
+    )
+
+    {:noreply, state}
+  end
+
+  defp broadcast_event(event_trigger) do
+    event_trigger
+    |> Core.pair_event_with_topics()
     |> Enum.each(fn {topic, event_name, event} ->
       :ok = Endpoint.broadcast!(topic, event_name, JSONRPC.Client.encode(event))
     end)
-
-    {:noreply, state}
   end
 end
