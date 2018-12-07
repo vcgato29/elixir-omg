@@ -49,6 +49,14 @@ defmodule OMG.Watcher.DB.Transaction do
   end
 
   @doc """
+    Gets transactions specified by a list of hashes.
+  """
+  def get(hashes) when is_list(hashes) do
+    query = from(tx in __MODULE__, where: tx.txhash in ^hashes)
+    DB.Repo.all(query)
+  end
+
+  @doc """
     Gets a transaction specified by a hash.
     Optionally, fetches block which the transaction was included in.
   """

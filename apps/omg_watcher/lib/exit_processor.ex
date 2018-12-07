@@ -147,7 +147,7 @@ defmodule OMG.Watcher.ExitProcessor do
   end
 
   def handle_call({:get_ifes, hashes}, _from, state),
-    do: {:reply, Core.get_in_flight_exits(hashes), state}
+    do: {:reply, Core.get_in_flight_exits(state, hashes), state}
 
   def handle_info(:check_validity, state) do
     _ = check_validity(state)

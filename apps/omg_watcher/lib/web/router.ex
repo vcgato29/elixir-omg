@@ -36,6 +36,8 @@ defmodule OMG.Watcher.Web.Router do
     get("/utxo/:utxo_pos/exit_data", Controller.Utxo, :get_utxo_exit)
     get("/utxo/:utxo_pos/challenge_data", Controller.Challenge, :get_utxo_challenge)
 
+    post("/inflight_exit.get_available_piggybacks", Controller.InFlightExit, :get_available_piggybacks)
+
     get("/status", Controller.Status, :get_status)
 
     match(:*, "/*path", Controller.Fallback, :not_found)

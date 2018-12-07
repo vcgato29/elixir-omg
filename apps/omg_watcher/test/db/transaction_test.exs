@@ -56,6 +56,17 @@ defmodule OMG.Watcher.DB.TransactionTest do
     assert [] == DB.Transaction.get_by_blknum(5000)
   end
 
+  @tag fixtures: [:initial_blocks]
+  test "get all transactions by tx_hashes", %{initial_blocks: initial_blocks} do
+    tx_hashes =
+      initial_blocks
+      |> Enum.filter(&(elem(&1, 0) == 3000))
+      |> Enum.map(&elem(&1, 2))
+
+    txs = DB.Transaction.get(tx_hashes)
+    assert tx_hashes == Enum.map(txs, & &1.txhash)
+  end
+
   @tag fixtures: [:initial_blocks, :alice, :bob]
   test "gets transaction that spends utxo", %{alice: alice, bob: bob, initial_blocks: initial_blocks} do
     alice_deposit_pos = Utxo.position(1, 0, 0)
