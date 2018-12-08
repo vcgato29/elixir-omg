@@ -90,18 +90,30 @@ defmodule OMG.Watcher.ExitProcessor.Core do
   defp parse_contract_status({@zero_address, _contract_token, _contract_amount}), do: false
   defp parse_contract_status({_contract_owner, _contract_token, _contract_amount}), do: true
 
+  # TODO: docs, spec
   @doc """
 
   """
-  @spec new_in_flight_exits(t(), [map()], [map()]) :: t() | {:error, :unexpected_events}
+  #  @spec new_in_flight_exits(t(), [map()], [{binary(), [binary()]}]) :: t() | {:error, :unexpected_events}
   def new_in_flight_exits(state, exits, in_flight_exits_contract_data)
 
-  def new_in_flight_exits(state, exits, in_flight_exits_contract_data)
+  def new_in_flight_exits(_state, exits, in_flight_exits_contract_data)
       when length(exits) != length(in_flight_exits_contract_data),
       do: {:error, :unexpected_events}
 
-  def new_in_flight_exits(state, exits, in_flight_exits_contract_data) do
-    # TODO
+  def new_in_flight_exits(%{in_flight_exits: ifes} = state, new_ifes, in_flight_exits_contract_data) do
+    new_ifes =
+      new_ifes
+      |> Enum.zip(in_flight_exits_contract_data)
+      |> Enum.map(fn {ife, {tx_bytes, signatures, timestamp}} ->
+        {
+          ife.tx_hash,
+          InFlightExitInfo.build_in_flight_transaction_info(tx_bytes, signatures, timestamp)
+        }
+      end)
+      |> Map.new()
+
+    {%{state | in_flight_exits: Map.merge(ifes, new_ifes)}, []}
   end
 
   @doc """
@@ -206,4 +218,15 @@ defmodule OMG.Watcher.ExitProcessor.Core do
 
     {events, chain_validity}
   end
+
+  @doc """
+  Returns a map of requested in flight exits, where keys are IFE hashes and values are IFES
+  If given empty list of hashes, all IFEs are returned.
+  """
+  @spec get_in_flight_exits(__MODULE__.t(), [binary()]) :: %{binary() => InFlightExitInfo.t()}
+  def get_in_flight_exits(%__MODULE__{} = state, hashes \\ []), do: in_flight_exits(state, hashes)
+
+  defp in_flight_exits(%__MODULE__{in_flight_exits: ifes}, []), do: ifes
+
+  defp in_flight_exits(hashes, %__MODULE__{in_flight_exits: ifes}), do: Map.take(ifes, hashes)
 end

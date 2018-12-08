@@ -22,11 +22,12 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
 
   alias OMG.API.Crypto
   alias OMG.API.State
+  alias OMG.API.State.Transaction
   alias OMG.API.Utxo
   alias OMG.Watcher.Eventer
   alias OMG.Watcher.Eventer.Event
   alias OMG.Watcher.ExitProcessor.Core
-
+  alias OMG.Watcher.ExitProcessor.InFlightExitInfo
   require Utxo
 
   @eth Crypto.zero_address()
@@ -34,6 +35,25 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
 
   @utxo_pos1 Utxo.position(1, 0, 0)
   @utxo_pos2 Utxo.Position.decode(10_000_000_001)
+
+  deffixture transactions() do
+    [
+      %Transaction{
+        inputs: [%{blknum: 1, txindex: 1, oindex: 0}, %{blknum: 1, txindex: 2, oindex: 1}],
+        outputs: [
+          %{owner: "alicealicealicealice", currency: @eth, amount: 1},
+          %{owner: "carolcarolcarolcarol", currency: @eth, amount: 2}
+        ]
+      },
+      %Transaction{
+        inputs: [%{blknum: 2, txindex: 1, oindex: 0}, %{blknum: 2, txindex: 2, oindex: 1}],
+        outputs: [
+          %{owner: "alicealicealicealice", currency: @eth, amount: 1},
+          %{owner: "carolcarolcarolcarol", currency: @eth, amount: 2}
+        ]
+      }
+    ]
+  end
 
   deffixture processor_empty() do
     {:ok, empty} = Core.init([])
@@ -50,11 +70,34 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     ]
   end
 
+  deffixture ife_events(transactions, alice) do
+    %{addr: alice} = alice
+    [tx1_hash, tx2_hash] = transactions |> Enum.map(&Transaction.hash/1)
+
+    [
+      %{tx_hash: tx1_hash, initiator: alice},
+      %{tx_hash: tx2_hash, initiator: alice}
+    ]
+  end
+
   # extracts the mocked responses of the `Eth.RootChain.get_exit` for the exit events
   # all exits active (owner non-zero). This is the auxiliary, second argument that's fed into `new_exits`
   deffixture contract_statuses(events) do
     events
     |> Enum.map(fn %{amount: amount, currency: currency, owner: owner} -> {owner, currency, amount} end)
+  end
+
+  deffixture ife_contract_data(transactions, alice) do
+    %{priv: alice_priv} = alice
+
+    signatures =
+      transactions
+      |> Enum.map(&Transaction.sign(&1, [alice_priv, alice_priv]))
+      |> Enum.map(& &1.sigs)
+
+    tx_bytes = transactions |> Enum.map(&Transaction.encode/1)
+
+    Enum.zip([tx_bytes, signatures, List.duplicate(0, length(tx_bytes))])
   end
 
   deffixture processor_filled(processor_empty, events, contract_statuses) do
@@ -94,10 +137,32 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
       |> Core.new_exits([], [{alice, @eth, 10}])
   end
 
+  @tag fixtures: [:processor_empty, :alice, :ife_events, :ife_contract_data]
+  test "new_in_flight_exits sanity checks", %{
+    processor_empty: processor,
+    alice: %{addr: alice},
+    ife_events: [one_ife | _],
+    ife_contract_data: [ife1_data | _]
+  } do
+    {:error, :unexpected_events} =
+      processor
+      |> Core.new_in_flight_exits([one_ife], [])
+
+    {:error, :unexpected_events} =
+      processor
+      |> Core.new_in_flight_exits([], [ife1_data])
+  end
+
   @tag fixtures: [:processor_empty, :processor_filled]
-  test "can process empty new exits or empty finalizations", %{processor_empty: empty, processor_filled: filled} do
+  test "can process empty new exits, empty ifes or empty finalizations", %{
+    processor_empty: empty,
+    processor_filled: filled
+  } do
     assert {^empty, []} = Core.new_exits(empty, [], [])
+    assert {^empty, []} = Core.new_in_flight_exits(empty, [], [])
     assert {^filled, []} = Core.new_exits(filled, [], [])
+    assert {^filled, []} = Core.new_in_flight_exits(filled, [], [])
+
     assert {^filled, []} = Core.finalize_exits(filled, {[], []})
   end
 
@@ -264,5 +329,33 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
   @tag fixtures: [:processor_empty]
   test "empty processor returns no exiting utxo positions", %{processor_empty: empty} do
     assert [] = Core.get_exiting_utxo_positions(empty)
+  end
+
+  @tag fixtures: [:processor_empty]
+  test "empty processor returns no ifes", %{processor_empty: empty} do
+    assert %{} == Core.get_in_flight_exits(empty)
+  end
+
+  @tag fixtures: [:processor_empty, :ife_events, :ife_contract_data]
+  test "properly processes new ifes", %{
+    processor_empty: empty,
+    ife_events: events,
+    ife_contract_data: data
+  } do
+    ifes = Enum.zip(events, data) |> Enum.map(&build_ife/1) |> Map.new()
+    {updated_state, _} = Core.new_in_flight_exits(empty, events, data)
+
+    assert ifes == Core.get_in_flight_exits(updated_state)
+  end
+
+  defp build_ife({ife_event, {tx_bytes, signatures, timestamp}}) do
+    {:ok, raw_tx, []} = Transaction.decode(tx_bytes)
+
+    signed_tx = %Transaction.Signed{
+      raw_tx: raw_tx,
+      sigs: signatures
+    }
+
+    {ife_event.tx_hash, %InFlightExitInfo{tx: signed_tx, timestamp: timestamp}}
   end
 end

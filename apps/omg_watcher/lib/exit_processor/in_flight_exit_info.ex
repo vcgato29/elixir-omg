@@ -19,16 +19,16 @@ defmodule OMG.Watcher.ExitProcessor.InFlightExitInfo do
   Internal stuff of `OMG.Watcher.ExitProcessor`
   """
 
-  alias OMG.API.Utxo;
+  alias OMG.API.State.Transaction
+  alias OMG.API.Utxo
 
   # mapped by :in_flight_exit_id
   defstruct [
     :tx,
+    :tx_pos,
     :timestamp,
-    :priority,
     # piggybacking
-    :exit_map,
-    tx_pos: nil,
+    exit_map: <<0::16>>,
     oldest_competitor: 0,
     is_canonical: true
   ]
@@ -36,8 +36,7 @@ defmodule OMG.Watcher.ExitProcessor.InFlightExitInfo do
   @type t :: %__MODULE__{
           tx: Transaction.Signed.t(),
           tx_pos: Utxo.Position.t(),
-          timestamp: pos_integer(),
-          priority: non_neg_integer(),
+          timestamp: non_neg_integer(),
           exit_map: binary(),
           oldest_competitor: non_neg_integer(),
           is_canonical: boolean()
@@ -47,5 +46,19 @@ defmodule OMG.Watcher.ExitProcessor.InFlightExitInfo do
     # cut the oldest 8 bytes and shift left by one bit (least significant bit is set to 0)
     <<_::65, ife_id::bitstring-size(192)>> = <<tx_hash::bitstring, <<0::1>>::bitstring>>
     ife_id
+  end
+
+  def build_in_flight_transaction_info(tx_bytes, tx_signatures, timestamp) do
+    with {:ok, raw_tx, []} <- Transaction.decode(tx_bytes) do
+      signed_tx_map = %{
+        raw_tx: raw_tx,
+        sigs: tx_signatures
+      }
+
+      %__MODULE__{
+        tx: struct(Transaction.Signed, signed_tx_map),
+        timestamp: timestamp
+      }
+    end
   end
 end
