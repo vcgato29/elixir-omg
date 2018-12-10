@@ -113,7 +113,11 @@ defmodule OMG.Watcher.ExitProcessor.Core do
       end)
       |> Map.new()
 
-    {%{state | in_flight_exits: Map.merge(ifes, new_ifes)}, []}
+    db_updates =
+      new_ifes
+      |> Enum.map(&InFlightExitInfo.make_db_update/1)
+
+    {%{state | in_flight_exits: Map.merge(ifes, new_ifes)}, db_updates}
   end
 
   @doc """

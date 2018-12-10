@@ -105,7 +105,7 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     state
   end
 
-  @tag fixtures: [:processor_empty, :alice, :events, :contract_statuses]
+  @tag fixtures: [:processor_empty, :events, :contract_statuses]
   test "persist started exits and loads persisted on init", %{
     processor_empty: empty,
     events: events,
@@ -154,7 +154,7 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
   end
 
   @tag fixtures: [:processor_empty, :processor_filled]
-  test "can process empty new exits, empty ifes or empty finalizations", %{
+  test "can process empty new exits, empty in flight exits or empty finalizations", %{
     processor_empty: empty,
     processor_filled: filled
   } do
@@ -332,12 +332,12 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
   end
 
   @tag fixtures: [:processor_empty]
-  test "empty processor returns no ifes", %{processor_empty: empty} do
+  test "empty processor returns no in flight exits", %{processor_empty: empty} do
     assert %{} == Core.get_in_flight_exits(empty)
   end
 
   @tag fixtures: [:processor_empty, :ife_events, :ife_contract_data]
-  test "properly processes new ifes", %{
+  test "properly processes new in flight exits", %{
     processor_empty: empty,
     ife_events: events,
     ife_contract_data: data
@@ -346,6 +346,26 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     {updated_state, _} = Core.new_in_flight_exits(empty, events, data)
 
     assert ifes == Core.get_in_flight_exits(updated_state)
+  end
+
+  @tag fixtures: [:processor_empty, :ife_events, :ife_contract_data]
+  test "persists in flight exits and loads persisted on init", %{
+    processor_empty: empty,
+    ife_events: events,
+    ife_contract_data: data
+  } do
+    ifes = Enum.zip(events, data) |> Enum.map(&build_ife/1)
+
+    updates = Enum.map(ifes, &InFlightExitInfo.make_db_update/1)
+    update1 = Enum.at(updates, 0)
+    update2 = Enum.at(updates, 1)
+
+    assert {state2, ^update1} = Core.new_in_flight_exits(empty, Enum.slice(events, 0, 1), Enum.slice(data, 0, 1))
+
+#    assert {final_state, ^updates} = Core.new_in_flight_exits(empty, events, data)
+#    assert {^final_state, ^update2} = Core.new_in_flight_exits(state2, Enum.slice(events, 1, 1), Enum.slice(data, 1, 1))
+
+#        {:ok, ^final_state} = Core.init([], [])
   end
 
   defp build_ife({ife_event, {tx_bytes, signatures, timestamp}}) do
@@ -358,4 +378,5 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
 
     {ife_event.tx_hash, %InFlightExitInfo{tx: signed_tx, timestamp: timestamp}}
   end
+
 end
