@@ -65,7 +65,4 @@ defmodule OMG.Watcher.ExitProcessor.InFlightExitInfo do
   def make_db_update({ife_hash, %__MODULE__{} = ife_info}) do
     {:put, :in_flight_exit_info, {ife_hash, ife_info |> Map.from_struct()}}
   end
-
-
-
 end
