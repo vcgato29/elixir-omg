@@ -96,7 +96,7 @@ defmodule OMG.Watcher.ExitProcessor do
 
     {:ok, _} = :timer.send_interval(interval, self(), :check_validity)
 
-    Core.init(db_exits, sla_margin)
+    Core.init(db_exits, db_ifes, sla_margin)
   end
 
   def handle_call({:new_exits, exits}, _from, state) do
