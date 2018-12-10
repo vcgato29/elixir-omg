@@ -27,6 +27,7 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
   alias OMG.Watcher.Eventer
   alias OMG.Watcher.Eventer.Event
   alias OMG.Watcher.ExitProcessor.Core
+  alias OMG.Watcher.ExitProcessor.InFlightExitInfo
 
   @tag fixtures: [:processor_empty, :events, :contract_statuses, :utxo_positions]
   test "persist started exits and loads persisted on init", %{
@@ -46,7 +47,7 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     assert {^final_state, ^update2} =
              Core.new_exits(state2, Enum.slice(events, 1, 1), Enum.slice(contract_statuses, 1, 1))
 
-    {:ok, ^final_state} = Core.init(Enum.zip(keys, values))
+    {:ok, ^final_state} = Core.init(Enum.zip(keys, values), [])
   end
 
   @tag fixtures: [:processor_empty, :alice, :events, :tokens]
@@ -294,15 +295,14 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     update1 = Enum.slice(updates, 0, 1)
     update2 = Enum.slice(updates, 1, 1)
 
-    assert {state1, ^update1} = Core.new_in_flight_exits(empty, Enum.slice(events, 0, 1), Enum.slice(data, 0, 1))
+    assert {updated_state, ^update1} = Core.new_in_flight_exits(empty, Enum.slice(events, 0, 1), Enum.slice(data, 0, 1))
 
     assert {final_state, ^updates} = Core.new_in_flight_exits(empty, events, data)
 
-    #    assert {^final_state, ^update2} = Core.new_in_flight_exits(state2, Enum.slice(events, 1, 1), Enum.slice(data, 1, 1))
+    assert {^final_state, ^update2} =
+             Core.new_in_flight_exits(updated_state, Enum.slice(events, 1, 1), Enum.slice(data, 1, 1))
 
-    #        {:ok, ^final_state} = Core.init([], [])
+    {:ok, ^final_state} = Core.init([], ifes)
   end
 
-  defp build_ifes(events, contract_data) do
-  end
 end

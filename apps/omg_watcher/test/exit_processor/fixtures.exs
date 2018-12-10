@@ -56,7 +56,7 @@ defmodule OMG.Watcher.ExitProcessor.Fixtures do
   end
 
   deffixture processor_empty() do
-    {:ok, empty} = Core.init([])
+    {:ok, empty} = Core.init([], [])
     empty
   end
 
@@ -101,21 +101,23 @@ defmodule OMG.Watcher.ExitProcessor.Fixtures do
   end
 
   deffixture ifes(ife_events, ife_contract_data) do
-    Enum.zip(ife_events, ife_contract_data)
-    |> Enum.map(fn {ife_event, {tx_bytes, signatures, timestamp}} ->
-      {:ok, raw_tx, []} = Transaction.decode(tx_bytes)
-
-      signed_tx = %Transaction.Signed{
-        raw_tx: raw_tx,
-        sigs: signatures
-      }
-
-      {ife_event.tx_hash, %InFlightExitInfo{tx: signed_tx, timestamp: timestamp}}
-    end)
+    Enum.zip(ife_events, ife_contract_data) |> Enum.map(&build_ife/1)
   end
 
-  deffixture processor_filled(processor_empty, events, contract_statuses) do
+  deffixture processor_filled(processor_empty, events, contract_statuses, ife_events, ife_contract_data) do
     {state, _} = Core.new_exits(processor_empty, events, contract_statuses)
+    {state, _} = Core.new_in_flight_exits(state, ife_events, ife_contract_data)
     state
+  end
+
+  defp build_ife({ife_event, {tx_bytes, signatures, timestamp}}) do
+    {:ok, raw_tx, []} = Transaction.decode(tx_bytes)
+
+    signed_tx = %Transaction.Signed{
+      raw_tx: raw_tx,
+      sigs: signatures
+    }
+
+    {ife_event.tx_hash, %InFlightExitInfo{tx: signed_tx, timestamp: timestamp}}
   end
 end

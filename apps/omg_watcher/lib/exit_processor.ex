@@ -90,7 +90,7 @@ defmodule OMG.Watcher.ExitProcessor do
 
   def init(:ok) do
     {:ok, db_exits} = DB.exit_infos()
-
+    {:ok, db_ifes} = DB.in_flight_exits_info()
     sla_margin = Application.fetch_env!(:omg_watcher, :margin_slow_validator)
     interval = Application.fetch_env!(:omg_watcher, :exit_processor_validation_interval_ms)
 

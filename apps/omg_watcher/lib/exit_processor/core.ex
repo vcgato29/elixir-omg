@@ -43,13 +43,12 @@ defmodule OMG.Watcher.ExitProcessor.Core do
   @doc """
   Reads database-specific list of exits and turns them into current state
   """
-  @spec init(db_exits :: [{Utxo.Position.t(), map}], non_neg_integer) :: {:ok, t()}
-  def init(db_exits, sla_margin \\ @default_sla_margin) do
+  @spec init(db_exits :: [{Utxo.Position.t(), map}], [{binary(), map()}], non_neg_integer) :: {:ok, t()}
+  def init(db_exits, db_ifes, sla_margin \\ @default_sla_margin) do
     {:ok,
      %__MODULE__{
        exits: db_exits |> Enum.map(fn {k, v} -> {k, struct(ExitInfo, v)} end) |> Map.new(),
-       # TODO: init
-       in_flight_exits: Map.new(),
+       in_flight_exits: db_ifes |> Map.new(),
        sla_margin: sla_margin
      }}
   end
@@ -102,7 +101,7 @@ defmodule OMG.Watcher.ExitProcessor.Core do
       do: {:error, :unexpected_events}
 
   def new_in_flight_exits(%{in_flight_exits: ifes} = state, new_ifes, in_flight_exits_contract_data) do
-    new_ifes =
+    new_ifes_kv_pairs =
       new_ifes
       |> Enum.zip(in_flight_exits_contract_data)
       |> Enum.map(fn {ife, {tx_bytes, signatures, timestamp}} ->
@@ -111,11 +110,12 @@ defmodule OMG.Watcher.ExitProcessor.Core do
           InFlightExitInfo.build_in_flight_transaction_info(tx_bytes, signatures, timestamp)
         }
       end)
-      |> Map.new()
 
     db_updates =
-      new_ifes
+      new_ifes_kv_pairs
       |> Enum.map(&InFlightExitInfo.make_db_update/1)
+
+    new_ifes = new_ifes_kv_pairs |> Map.new()
 
     {%{state | in_flight_exits: Map.merge(ifes, new_ifes)}, db_updates}
   end
