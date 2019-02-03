@@ -46,9 +46,9 @@ sudo apt-get -y install geth
 ```
 
 ## Install solc
-```
-sudo apt-get install libssl-dev solc
-```
+
+The information about possible ways of installing solc can be found [here](https://solidity.readthedocs.io/en/latest/installing-solidity.html?highlight=install).\
+Remember to install required version of solc by [plasma-contracts](https://github.com/omisego/plasma-contracts).
 
 ## Install hex and rebar
 ```
