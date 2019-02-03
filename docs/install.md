@@ -55,6 +55,11 @@ sudo apt-get install libssl-dev solc
 mix do local.hex --force, local.rebar --force
 ```
 
+## Install PostgresSQL
+```
+sudo apt install postgresql postgresql-contrib
+```
+
 ## Clone repo
 ```
 git clone https://github.com/omisego/elixir-omg
