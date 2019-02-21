@@ -105,15 +105,35 @@ defmodule OMG.API.EthereumEventListener do
       end
 
     {:ok, events, db_updates, height_to_check_in, state} = Core.get_events(state, sync_height)
-    {:ok, db_updates_from_callback} = callbacks.process_events_callback.(events)
-    :ok = OMG.DB.multi_update(db_updates ++ db_updates_from_callback)
+    # FIXME: make compact and remove commented code around here
+    # if not Enum.empty?(events) and state.service_name == :convenience_deposit_processor, do: raise ArgumentError.message("stop)")
+
+    callback_result =
+      events
+      |> callbacks.process_events_callback.()
+
+    # if not Enum.empty?(events) and state.service_name == :convenience_deposit_processor, do: raise ArgumentError.message("stop)")
+    callback_result
+    |> handle_updates(db_updates)
+
     :ok = RootChainCoordinator.check_in(height_to_check_in, state.service_name)
 
     {state, callbacks}
   end
 
+  defp handle_updates({:ok, db_updates_from_callback}, db_updates) do
+    :ok = OMG.DB.multi_update(db_updates ++ db_updates_from_callback)
+  end
+
+  defp handle_updates({:ok, :handle_using, external_updates_handler}, db_updates) do
+    eel_handler = fn -> :ok = OMG.DB.multi_update(db_updates) end
+    {:ok, _} = external_updates_handler.(eel_handler)
+    # FIXME: remove, this is here as a "broken" version of the above, to experiment
+    # _ = external_updates_handler.(handle_local_db_updates)
+  end
+
   defp schedule_get_events do
-    Application.fetch_env!(:omg_api, :ethereum_status_check_interval_ms)
+    Application.fetch_env!(:omg_api, :ethereum_events_check_interval_ms)
     |> :timer.send_after(self(), :sync)
   end
 end

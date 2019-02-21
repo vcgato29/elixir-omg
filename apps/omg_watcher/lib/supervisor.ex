@@ -82,8 +82,18 @@ defmodule OMG.Watcher.Supervisor do
         synced_height_update_key: :last_convenience_deposit_processor_eth_height,
         get_events_callback: &Eth.RootChain.get_deposits/2,
         process_events_callback: fn deposits ->
-          _ = Watcher.DB.EthEvent.insert_deposits(deposits)
-          {:ok, []}
+          external_updates_handler = fn eel_handler ->
+            OMG.Watcher.DB.Repo.transaction(fn ->
+              _ = Watcher.DB.EthEvent.insert_deposits(deposits)
+
+              case eel_handler.() do
+                :ok -> :ok
+                other -> OMG.Watcher.DB.Repo.rollback({:error, other})
+              end
+            end)
+          end
+
+          {:ok, :handle_using, external_updates_handler}
         end
       ),
       {Watcher.ExitProcessor, []},
@@ -100,8 +110,24 @@ defmodule OMG.Watcher.Supervisor do
         synced_height_update_key: :last_convenience_exit_processor_eth_height,
         get_events_callback: &Eth.RootChain.get_standard_exits/2,
         process_events_callback: fn exits ->
-          _ = Watcher.DB.EthEvent.insert_exits(exits)
-          {:ok, []}
+          external_updates_handler = fn eel_handler ->
+            OMG.Watcher.DB.Repo.transaction(fn ->
+              _ = Watcher.DB.EthEvent.insert_exits(exits)
+
+              case eel_handler.() do
+                :ok -> :ok
+                other -> OMG.Watcher.DB.Repo.rollback({:error, other})
+              end
+
+              # FIXME: remove, this is here as a "broken" version of the above, to experiment
+              # case nil do
+              #   # :ok -> :ok
+              #   other -> OMG.Watcher.DB.Repo.rollback({:error, other})
+              # end
+            end)
+          end
+
+          {:ok, :handle_using, external_updates_handler}
         end
       ),
       EthereumEventListener.prepare_child(
