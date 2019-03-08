@@ -51,6 +51,31 @@ defmodule OMG.Eth do
   @spec syncing?() :: boolean
   def syncing?, do: node_ready() != :ok
 
+  @doc """
+  Send transaction to be singed by a key managed by Ethereum node, geth or parity
+  """
+  @spec send_transaction(map()) :: {:ok, hash()} | {:error, any()}
+  def send_transaction(txmap, opts \\ []) do
+    case backend() do
+      :geth ->
+        with {:ok, receipt_enc} <- Ethereumex.HttpClient.eth_send_transaction(txmap), do: {:ok, from_hex(receipt_enc)}
+
+      :parity ->
+        with {:ok, passphrase} <- get_signer_passphrase(txmap.from) do
+          opts = Keyword.merge([passphrase: passphrase], opts)
+          params = [txmap, Keyword.get(opts, :passphrase, "")]
+
+          with {:ok, receipt_enc} <- Ethereumex.HttpClient.request("personal_sendTransaction", params, []),
+               do: {:ok, from_hex(receipt_enc)}
+        end
+    end
+  end
+
+  def backend do
+    Application.get_env(:omg_eth, :eth_node, "geth")
+    |> String.to_existing_atom()
+  end
+
   def get_ethereum_height do
     case Ethereumex.HttpClient.eth_block_number() do
       {:ok, height_hex} ->
@@ -84,7 +109,7 @@ defmodule OMG.Eth do
     end
   end
 
-  @spec contract_transact(address, address, binary, [any], keyword) :: {:ok, binary} | {:error, any}
+  @spec contract_transact(address, address, binary, [any], keyword) :: {:ok, hash()} | {:error, any}
   def contract_transact(from, to, signature, args, opts \\ []) do
     data = encode_tx_data(signature, args)
 
@@ -93,8 +118,7 @@ defmodule OMG.Eth do
       |> Map.merge(Map.new(opts))
       |> encode_all_integer_opts()
 
-    with {:ok, txhash} <- Ethereumex.HttpClient.eth_send_transaction(txmap),
-         do: {:ok, from_hex(txhash)}
+    send_transaction(txmap)
   end
 
   defp encode_all_integer_opts(opts) do
@@ -128,8 +152,7 @@ defmodule OMG.Eth do
       |> Map.merge(Map.new(opts))
       |> encode_all_integer_opts()
 
-    with {:ok, txhash} <- Ethereumex.HttpClient.eth_send_transaction(txmap),
-         do: {:ok, from_hex(txhash)}
+    {:ok, _txhash} = send_transaction(txmap)
   end
 
   defp read_contracts_bin!(path_project_root, contract_name) do
@@ -248,5 +271,17 @@ defmodule OMG.Eth do
   defp common_parse_event(result, %{"blockNumber" => eth_height}) do
     result
     |> Map.put(:eth_height, int_from_hex(eth_height))
+  end
+
+  defp get_signer_passphrase("0x00a329c0648769a73afac7f9381e08fb43dbea72") do
+    # Parity coinbase address in dev mode, passphrase is empty
+    {:ok, ""}
+  end
+
+  defp get_signer_passphrase(_) do
+    case System.get_env("SIGNER_PASSPHRASE") do
+      nil -> {:error, :please_provide_passphrase_unlocking_ethereum_account_managed_by_parity}
+      value -> {:ok, value}
+    end
   end
 end
