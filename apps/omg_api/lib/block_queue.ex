@@ -55,6 +55,8 @@ defmodule OMG.API.BlockQueue do
     use GenServer
     use OMG.API.LoggerExt
 
+    use Appsignal.Instrumentation.Decorators
+
     alias OMG.Eth
 
     def start_link(_args) do
@@ -123,24 +125,7 @@ defmodule OMG.API.BlockQueue do
     Checks the status of the Ethereum root chain, the top mined child block number
     and status of State to decide what to do
     """
-    def handle_info(:check_ethereum_status, %Core{} = state) do
-      {:ok, height} = Eth.get_ethereum_height()
-      {:ok, mined_blknum} = Eth.RootChain.get_mined_child_block()
-      {_, is_empty_block} = OMG.API.State.get_status()
-
-      _ = Logger.debug("Ethereum at \#'#{inspect(height)}', mined child at \#'#{inspect(mined_blknum)}'")
-
-      state1 =
-        with {:do_form_block, state1} <- Core.set_ethereum_status(state, height, mined_blknum, is_empty_block) do
-          :ok = OMG.API.State.form_block()
-          state1
-        else
-          {:dont_form_block, state1} -> state1
-        end
-
-      submit_blocks(state1)
-      {:noreply, state1}
-    end
+    def handle_info(:check_ethereum_status, %Core{} = state), do: do_check_ethereum_status(state)
 
     def handle_cast({:enqueue_block, %Block{number: block_number, hash: block_hash}}, %Core{} = state) do
       {:ok, parent_height} = Eth.get_ethereum_height()
@@ -167,6 +152,26 @@ defmodule OMG.API.BlockQueue do
       {:ok, newest_mined_blknum} = Eth.RootChain.get_mined_child_block()
 
       :ok = Core.process_submit_result(submission, submit_result, newest_mined_blknum)
+    end
+
+    @decorate transaction(:background_job)
+    defp do_check_ethereum_status(state) do
+      {:ok, height} = Eth.get_ethereum_height()
+      {:ok, mined_blknum} = Eth.RootChain.get_mined_child_block()
+      {_, is_empty_block} = OMG.API.State.get_status()
+
+      _ = Logger.debug("Ethereum at \#'#{inspect(height)}', mined child at \#'#{inspect(mined_blknum)}'")
+
+      state1 =
+        with {:do_form_block, state1} <- Core.set_ethereum_status(state, height, mined_blknum, is_empty_block) do
+          :ok = OMG.API.State.form_block()
+          state1
+        else
+          {:dont_form_block, state1} -> state1
+        end
+
+      submit_blocks(state1)
+      {:noreply, state1}
     end
   end
 end

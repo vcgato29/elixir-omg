@@ -29,6 +29,7 @@ defmodule OMG.Eth do
   """
 
   import OMG.Eth.Encoding
+  use Appsignal.Instrumentation.Decorators
 
   @type address :: <<_::160>>
   @type hash :: <<_::256>>
@@ -137,6 +138,8 @@ defmodule OMG.Eth do
     logs |> Enum.filter(&(not Map.get(&1, "removed", true)))
   end
 
+  @decorate transaction(:background_job)
+  @decorate transaction_event()
   def get_ethereum_events(block_from, block_to, signature, contract) do
     topic = event_topic_for_signature(signature)
 

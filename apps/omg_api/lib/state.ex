@@ -30,6 +30,8 @@ defmodule OMG.API.State do
 
   use OMG.API.LoggerExt
 
+  use Appsignal.Instrumentation.Decorators
+
   @type exec_error :: Core.exec_error()
 
   ### Client
@@ -38,6 +40,7 @@ defmodule OMG.API.State do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
+  @decorate transaction_event()
   @spec exec(tx :: %Transaction.Recovered{}, fees :: map()) ::
           {:ok, {Transaction.Recovered.tx_hash_t(), pos_integer, non_neg_integer}}
           | {:error, exec_error()}
@@ -45,10 +48,12 @@ defmodule OMG.API.State do
     GenServer.call(__MODULE__, {:exec, tx, input_fees})
   end
 
+  @decorate transaction_event()
   def form_block do
     GenServer.cast(__MODULE__, :form_block)
   end
 
+  @decorate transaction_event()
   @spec close_block(pos_integer) :: {:ok, list(Core.db_update())}
   def close_block(eth_height) do
     GenServer.call(__MODULE__, {:close_block, eth_height})

@@ -36,6 +36,8 @@ defmodule OMG.Watcher.BlockGetter do
   use GenServer
   use OMG.API.LoggerExt
 
+  use Appsignal.Instrumentation.Decorators
+
   def get_events do
     GenServer.call(__MODULE__, :get_events)
   end
@@ -58,16 +60,19 @@ defmodule OMG.Watcher.BlockGetter do
     {:reply, Core.chain_ok(state), state}
   end
 
-  def handle_cast(
-        {:apply_block,
-         %BlockApplication{
-           transactions: transactions,
-           number: blknum,
-           zero_fee_requirements: fees,
-           eth_height: block_rootchain_height
-         } = to_apply},
-        state
-      ) do
+  def handle_cast(msg, state), do: do_apply_block(msg, state)
+
+  @decorate transaction(:background_job)
+  defp do_apply_block(
+         {:apply_block,
+          %BlockApplication{
+            transactions: transactions,
+            number: blknum,
+            zero_fee_requirements: fees,
+            eth_height: block_rootchain_height
+          } = to_apply},
+         state
+       ) do
     with {:ok, _} <- Core.chain_ok(state),
          tx_exec_results = for(tx <- transactions, do: OMG.API.State.exec(tx, fees)),
          {:ok, state} <- Core.validate_executions(tx_exec_results, to_apply, state) do

@@ -19,6 +19,8 @@ defmodule OMG.Watcher.DB.Transaction do
   use Ecto.Schema
   use OMG.API.LoggerExt
 
+  use Appsignal.Instrumentation.Decorators
+
   alias OMG.API.State.Transaction
   alias OMG.API.Utxo
   alias OMG.Watcher.DB
@@ -112,6 +114,7 @@ defmodule OMG.Watcher.DB.Transaction do
   @doc """
   Inserts complete and sorted enumerable of transactions for particular block number
   """
+  @decorate transaction_event()
   @spec update_with(mined_block()) :: {:ok, any()}
   def update_with(%{
         transactions: transactions,
