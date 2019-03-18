@@ -136,6 +136,37 @@ jobs:
               --branch $CIRCLE_BRANCH \
               --message "$GIT_COMMIT_DESCRIPTION"
 
+  integration_tests_with_parity:
+    docker:
+      - image: paulperegud/elixir-omg-circleci:v1.8-parity
+        environment:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omisego_dev
+      - image: circleci/postgres:9.6-alpine
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: omisego_dev
+          MIX_ENV: test
+    working_directory: ~/repo
+
+    steps:
+      - attach_workspace:
+           at: .
+
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+
+      - run:
+          name: Integration Tests with Parity
+          environment:
+            SIGNER_PASSPHRASE: ThisIsATestnetPassphrase
+            ETH_NODE: parity
+          command: |
+            export SHELL=/bin/bash
+            mix test \
+              --include integration \
+              --include wrappers
+
   dialyzer:
     docker:
       - image: omisegoimages/elixir-omg-circleci:v1.8-20190129-02
@@ -285,6 +316,8 @@ workflows:
     jobs:
       - build
       - coveralls_and_integration_tests:
+          requires: [build]
+      - integration_tests_with_parity:
           requires: [build]
       - lint:
           requires: [build]
