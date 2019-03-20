@@ -112,10 +112,14 @@ defmodule OMG.Watcher.Fixtures do
   end
 
   deffixture watcher(db_initialized, root_chain_contract_config) do
+    Logger.warn("deffixture watcher start")
     :ok = root_chain_contract_config
     :ok = db_initialized
+    Logger.warn("starting db")
     {:ok, started_apps} = Application.ensure_all_started(:omg_db)
+    Logger.warn("starting watcher")
     {:ok, started_watcher} = Application.ensure_all_started(:omg_watcher)
+    Logger.warn("starting ready")
 
     on_exit(fn ->
       Application.put_env(:omg_db, :leveldb_path, nil)
@@ -137,9 +141,24 @@ defmodule OMG.Watcher.Fixtures do
       OMG.Watcher.Supervisor
       |> Supervisor.which_children()
       |> Enum.filter(&(elem(&1, 0) == Watcher.DB.Repo))
+    test = self()
+    Logger.warn("test: #{inspect test}")
+    Logger.warn("DB.Repo supervisor: #{inspect repo_pid}")
+
+    Task.start(fn() ->
+      TestHelper.wait_for_process(test)
+      Logger.warn("test #{inspect test} done")
+    end)
+
+    Task.start(fn() ->
+      TestHelper.wait_for_process(repo_pid)
+      Logger.warn("repo_pid #{inspect repo_pid} done")
+    end)
 
     :ok = SQL.Sandbox.checkout(DB.Repo, ownership_timeout: 90_000)
-    SQL.Sandbox.mode(DB.Repo, {:shared, repo_pid})
+    SQL.Sandbox.mode(DB.Repo, {:shared, self()})
+    # SQL.Sandbox.mode(DB.Repo, {:shared, repo_pid})
+    Logger.warn("done doing setup")
   end
 
   @doc "run only database in sandbox and endpoint to make request"

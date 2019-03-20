@@ -29,6 +29,8 @@ defmodule OMG.Watcher.Integration.StandardExitTest do
   alias OMG.Watcher.TestHelper
   alias OMG.Watcher.Web.{Channel, Serializer.Response}
 
+  use OMG.API.LoggerExt
+
   require Utxo
 
   @endpoint OMG.Watcher.Web.Endpoint
@@ -39,6 +41,7 @@ defmodule OMG.Watcher.Integration.StandardExitTest do
   @timeout 40_000
   @eth OMG.Eth.RootChain.eth_pseudo_address()
 
+  @tag :fin
   @tag fixtures: [:watcher_sandbox, :stable_alice, :child_chain, :token, :stable_alice_deposits]
   test "exit finalizes", %{
     stable_alice: alice,
@@ -65,6 +68,7 @@ defmodule OMG.Watcher.Integration.StandardExitTest do
       "utxo_pos" => utxo_pos
     } = TestHelper.get_exit_data(tx_blknum, 0, 0)
 
+    Logger.warn("Start exit")
     {:ok, %{"status" => "0x1"}} =
       Eth.RootChain.start_exit(
         utxo_pos,
