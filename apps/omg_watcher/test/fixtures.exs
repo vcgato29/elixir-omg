@@ -131,16 +131,15 @@ defmodule OMG.Watcher.Fixtures do
     # 1) Watcher fixture starts an application <=> it's shutdown may take time.
     # 2) Shared sandbox means all processes can write.
     # 3) => There is a chance of process writing to DB after death of the sandbox.
-    # Solution - link sandbox to repo so no process can acquire connection from the pool
-    # after the death of the sandbox. We want no writes happening without sandbox.
+    # Solution - link sandbox to repo so sandbox will die only after the death of repo.
+    # We want no writes happening without sandbox.
     [{Watcher.DB.Repo, repo_pid, _, _}] =
       OMG.Watcher.Supervisor
       |> Supervisor.which_children()
       |> Enum.filter(&(elem(&1, 0) == Watcher.DB.Repo))
-    Process.link(repo_pid)
 
     :ok = SQL.Sandbox.checkout(DB.Repo, ownership_timeout: 90_000)
-    SQL.Sandbox.mode(DB.Repo, {:shared, self()})
+    SQL.Sandbox.mode(DB.Repo, {:shared, repo_pid})
   end
 
   @doc "run only database in sandbox and endpoint to make request"
