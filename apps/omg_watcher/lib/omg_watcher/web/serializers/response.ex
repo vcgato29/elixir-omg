@@ -35,7 +35,10 @@ defmodule OMG.Watcher.Web.Serializer.Response do
   def sanitize(map_or_struct) when is_map(map_or_struct) do
     map_or_struct
     |> to_map()
-    |> Enum.filter(fn {_k, v} -> Ecto.assoc_loaded?(v) end)
+    |> Enum.filter(fn
+      {_, %Ecto.Association.NotLoaded{}} -> false
+      _ -> true
+    end)
     |> Enum.map(fn {k, v} -> {k, sanitize(v)} end)
     |> Map.new()
   end
